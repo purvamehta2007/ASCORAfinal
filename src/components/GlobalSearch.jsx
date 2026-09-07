@@ -1,0 +1,2 @@
+import React,{useState} from "react";
+export default function GlobalSearch(){const [q,setQ]=useState("");return <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search topics, notes, tests..." /> }

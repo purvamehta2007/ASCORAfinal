@@ -1,0 +1,6 @@
+import React from "react";
+export default function Teacher(){
+ return <><div className="hero"><span className="pill">Teacher / School view</span><h1>Class intelligence</h1><p className="muted">Aggregated insights help teachers identify concepts that need classroom-level intervention.</p></div>
+ <div className="grid grid-3" style={{marginTop:16}}><div className="card"><div className="muted">Students</div><div className="stat">32</div></div><div className="card"><div className="muted">Average mastery</div><div className="stat">68%</div></div><div className="card"><div className="muted">Need support</div><div className="stat">6</div></div></div>
+ <div className="card" style={{marginTop:16}}><h2>Common misconceptions</h2><table><thead><tr><th>Topic</th><th>Students affected</th><th>Recommended intervention</th></tr></thead><tbody><tr><td>Linear Equations</td><td>11</td><td>Visual balance model + guided practice</td></tr><tr><td>Fractions</td><td>8</td><td>Equivalent-fraction visual exercise</td></tr><tr><td>Geometry</td><td>5</td><td>Diagram-first explanation</td></tr></tbody></table></div></>
+}
