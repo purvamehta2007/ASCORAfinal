@@ -3,22 +3,41 @@ import { chat } from "./aiProvider.js";
 /**
  * Generate an adaptive answer for a student's doubt.
  *
- * The route already provides the student's learning context.
- * This service forwards that context to the AI provider.
+ * The caller should provide learning context derived
+ * from the trusted server-side student profile.
  */
 export async function generateAdaptiveAnswer({
   doubt,
   student_context = {},
 }) {
-  if (!doubt || typeof doubt !== "string") {
-    throw new Error("A valid doubt is required.");
+  if (
+    !doubt ||
+    typeof doubt !== "string" ||
+    !doubt.trim()
+  ) {
+    throw new Error(
+      "A valid student doubt is required."
+    );
   }
 
   const context = {
-    topic: student_context.topic || "Unknown",
-    mastery: student_context.mastery ?? "Unknown",
-    pace: student_context.pace || "normal",
-    difficulty: student_context.difficulty || "moderate",
+    topic:
+      student_context.topic ||
+      "Unknown",
+
+    mastery:
+      student_context.mastery ??
+      "Unknown",
+
+    pace:
+      student_context.pace ||
+      student_context.learningPace ||
+      "normal",
+
+    difficulty:
+      student_context.difficulty ??
+      student_context.difficultyLevel ??
+      "moderate",
 
     scaffolding:
       student_context.scaffolding ||
@@ -31,10 +50,10 @@ export async function generateAdaptiveAnswer({
       false,
 
     misconceptions:
-      Array.isArray(student_context.misconceptions)
+      Array.isArray(
+        student_context.misconceptions
+      )
         ? student_context.misconceptions
-        : Array.isArray(student_context.errors)
-        ? student_context.errors
         : [],
   };
 

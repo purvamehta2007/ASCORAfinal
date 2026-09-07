@@ -1,6 +1,7 @@
+import "dotenv/config";
+
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 
 import { studentRouter } from "./routes/student.js";
 import { assessmentRouter } from "./routes/assessment.js";
@@ -8,11 +9,9 @@ import { aiChatRouter } from "./routes/aiChat.js";
 import { ascoraRouter } from "./routes/ascora.js";
 import { notebookRouter } from "./routes/notebook.js";
 
-dotenv.config();
-
 const app = express();
 
-const PORT = process.env.PORT || 3001;
+const PORT = Number(process.env.PORT) || 3001;
 
 const CLIENT_ORIGIN =
   process.env.CLIENT_ORIGIN ||
@@ -43,11 +42,12 @@ app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
     service: "ascora-api",
+    timestamp: new Date().toISOString(),
   });
 });
 
 // --------------------------------------------------
-// Supabase Debug
+// Supabase / AI configuration debug
 // --------------------------------------------------
 
 app.get("/api/debug/supabase", (req, res) => {
@@ -59,6 +59,14 @@ app.get("/api/debug/supabase", (req, res) => {
       Boolean(
         process.env.SUPABASE_SERVICE_ROLE_KEY
       ),
+
+    anonKeyConfigured:
+      Boolean(
+        process.env.VITE_SUPABASE_ANON_KEY
+      ),
+
+    hfTokenConfigured:
+      Boolean(process.env.HF_TOKEN),
 
     aiKeyConfigured:
       Boolean(process.env.AI_API_KEY),
@@ -106,7 +114,7 @@ app.use((req, res) => {
 });
 
 // --------------------------------------------------
-// Error Handler
+// Global error handler
 // --------------------------------------------------
 
 app.use((err, req, res, next) => {
@@ -114,15 +122,18 @@ app.use((err, req, res, next) => {
 
   res.status(500).json({
     error: "Internal server error",
-    message: err.message,
+    message:
+      process.env.NODE_ENV === "development"
+        ? err.message
+        : undefined,
   });
 });
 
 // --------------------------------------------------
-// Start
+// Start server
 // --------------------------------------------------
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log("");
   console.log("====================================");
   console.log("       ASCORA API SERVER");
@@ -151,10 +162,18 @@ app.listen(PORT, () => {
   );
 
   console.log(
-    `AI API Key: ${
-      process.env.AI_API_KEY
+    `Supabase Anon Key: ${
+      process.env.VITE_SUPABASE_ANON_KEY
         ? "configured"
-        : "not configured"
+        : "NOT CONFIGURED"
+    }`
+  );
+
+  console.log(
+    `HF Token: ${
+      process.env.HF_TOKEN
+        ? "configured"
+        : "NOT CONFIGURED"
     }`
   );
 

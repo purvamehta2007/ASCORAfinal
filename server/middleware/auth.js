@@ -1,6 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseUrl =
+  process.env.SUPABASE_URL ||
+  process.env.VITE_SUPABASE_URL;
+
 const supabaseAnonKey =
   process.env.VITE_SUPABASE_ANON_KEY;
 
@@ -8,7 +11,13 @@ const supabaseAuthClient =
   supabaseUrl && supabaseAnonKey
     ? createClient(
         supabaseUrl,
-        supabaseAnonKey
+        supabaseAnonKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
       )
     : null;
 
@@ -29,8 +38,8 @@ export async function requireAuth(
 
     const token =
       authHeader.startsWith("Bearer ")
-        ? authHeader.substring(7)
-        : authHeader;
+        ? authHeader.slice(7).trim()
+        : authHeader.trim();
 
     if (!token) {
       return res.status(401).json({
@@ -39,6 +48,10 @@ export async function requireAuth(
     }
 
     if (!supabaseAuthClient) {
+      console.error(
+        "ASCORA AUTH: Supabase authentication is not configured."
+      );
+
       return res.status(500).json({
         error:
           "Supabase authentication is not configured",
@@ -64,11 +77,11 @@ export async function requireAuth(
     next();
   } catch (error) {
     console.error(
-      "AUTH MIDDLEWARE ERROR:",
-      error
+      "ASCORA AUTH ERROR:",
+      error?.message || error
     );
 
-    res.status(401).json({
+    return res.status(401).json({
       error: "Authentication failed",
     });
   }
