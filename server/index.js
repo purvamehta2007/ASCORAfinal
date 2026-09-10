@@ -8,6 +8,8 @@ import { assessmentRouter } from "./routes/assessment.js";
 import { aiChatRouter } from "./routes/aiChat.js";
 import { ascoraRouter } from "./routes/ascora.js";
 import { notebookRouter } from "./routes/notebook.js";
+import plannerRouter from "./routes/planner.js";
+import deviceRouter from "./routes/device.js";
 
 const app = express();
 
@@ -74,7 +76,7 @@ app.get("/api/debug/supabase", (req, res) => {
 });
 
 // --------------------------------------------------
-// Routes
+// Authenticated application routes
 // --------------------------------------------------
 
 app.use(
@@ -100,6 +102,25 @@ app.use(
 app.use(
   "/api/student",
   studentRouter
+);
+
+// --------------------------------------------------
+// Automated Planner
+// --------------------------------------------------
+
+app.use(
+  "/api/planner",
+  plannerRouter
+);
+
+// --------------------------------------------------
+// Raspberry Pi ASCORA Device
+// Login-free robot display
+// --------------------------------------------------
+
+app.use(
+  "/api/device",
+  deviceRouter
 );
 
 // --------------------------------------------------
@@ -138,9 +159,11 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log("====================================");
   console.log("       ASCORA API SERVER");
   console.log("====================================");
+
   console.log(
     `Server: http://localhost:${PORT}`
   );
+
   console.log(
     `Frontend: ${CLIENT_ORIGIN}`
   );
@@ -175,6 +198,22 @@ app.listen(PORT, "0.0.0.0", () => {
         ? "configured"
         : "NOT CONFIGURED"
     }`
+  );
+
+  console.log(
+    `AI Key: ${
+      process.env.AI_API_KEY
+        ? "configured"
+        : "NOT CONFIGURED"
+    }`
+  );
+
+  console.log(
+    "Planner API: /api/planner"
+  );
+
+  console.log(
+    "Device API: /api/device"
   );
 
   console.log("====================================");

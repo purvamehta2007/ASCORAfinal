@@ -11,22 +11,14 @@ import { evaluateResponse } from "../services/responseEvaluator.js";
 
 export const ascoraRouter = Router();
 
-// --------------------------------------------------
-// Helpers
-// --------------------------------------------------
+/* =========================================================
+   HELPERS
+========================================================= */
 
-function ensureOwnStudentId(
-  req,
-  res,
-  studentId
-) {
-  if (
-    !req.user?.id ||
-    req.user.id !== studentId
-  ) {
+function ensureOwnStudentId(req, res, studentId) {
+  if (!req.user?.id || req.user.id !== studentId) {
     res.status(403).json({
-      error:
-        "You can only access your own learning data.",
+      error: "You can only access your own learning data.",
     });
 
     return false;
@@ -35,15 +27,9 @@ function ensureOwnStudentId(
   return true;
 }
 
-// --------------------------------------------------
-// ANSWER STUDENT DOUBT
-//
-// IMPORTANT:
-// - Authentication required.
-// - Student ID comes from authenticated session.
-// - Learning context comes from Supabase/server.
-// - Client cannot override mastery/misconceptions.
-// --------------------------------------------------
+/* =========================================================
+   ANSWER STUDENT DOUBT
+========================================================= */
 
 ascoraRouter.post(
   "/answer",
@@ -52,10 +38,7 @@ ascoraRouter.post(
     try {
       const studentId = req.user.id;
 
-      const {
-        doubt,
-        topic,
-      } = req.body || {};
+      const { doubt, topic } = req.body || {};
 
       if (
         !doubt ||
@@ -67,34 +50,40 @@ ascoraRouter.post(
         });
       }
 
-      // Build trusted student profile
-      const profile =
-        await buildStudentProfile(
-          studentId,
-          {
-            topic:
-              typeof topic === "string" &&
-              topic.trim()
-                ? topic.trim()
-                : undefined,
-          }
-        );
+      /* -----------------------------------------------
+         Build trusted student profile
+      ------------------------------------------------ */
 
-      // Build adaptive teaching strategy
-      const strategy =
-        buildTeachingStrategy(
-          profile,
-          {
-            topic:
-              topic ||
-              profile.currentTopic,
+      const profile = await buildStudentProfile(
+        studentId,
+        {
+          topic:
+            typeof topic === "string" &&
+            topic.trim()
+              ? topic.trim()
+              : undefined,
+        }
+      );
 
-            doubt: doubt.trim(),
-          }
-        );
+      /* -----------------------------------------------
+         Build adaptive teaching strategy
+      ------------------------------------------------ */
 
-      // Generate AI response using trusted
-      // server-side learning context
+      const strategy = buildTeachingStrategy(
+        profile,
+        {
+          topic:
+            topic ||
+            profile.currentTopic,
+
+          doubt: doubt.trim(),
+        }
+      );
+
+      /* -----------------------------------------------
+         Generate adaptive answer
+      ------------------------------------------------ */
+
       const answer =
         await generateAdaptiveAnswer({
           doubt: doubt.trim(),
@@ -128,16 +117,17 @@ ascoraRouter.post(
           },
         });
 
-      // Record the doubt and answer
-      // as learning events.
+      /* -----------------------------------------------
+         Record learning events
+      ------------------------------------------------ */
+
       if (supabaseAdmin) {
         const { error } =
           await supabaseAdmin
             .from("learning_events")
             .insert([
               {
-                student_id:
-                  studentId,
+                student_id: studentId,
 
                 event_type:
                   "DOUBT_RAISED",
@@ -147,16 +137,13 @@ ascoraRouter.post(
                   profile.currentTopic,
 
                 metadata: {
-                  doubt:
-                    doubt.trim(),
-                  source:
-                    "ascora",
+                  doubt: doubt.trim(),
+                  source: "ascora",
                 },
               },
 
               {
-                student_id:
-                  studentId,
+                student_id: studentId,
 
                 event_type:
                   "ASCORA_ANSWER",
@@ -166,9 +153,7 @@ ascoraRouter.post(
                   profile.currentTopic,
 
                 metadata: {
-                  doubt:
-                    doubt.trim(),
-
+                  doubt: doubt.trim(),
                   answer,
 
                   strategy: {
@@ -225,9 +210,9 @@ ascoraRouter.post(
   }
 );
 
-// --------------------------------------------------
-// STUDENT CONTEXT
-// --------------------------------------------------
+/* =========================================================
+   GET STUDENT LEARNING CONTEXT
+========================================================= */
 
 ascoraRouter.get(
   "/student/:id/context",
@@ -302,9 +287,98 @@ ascoraRouter.get(
   }
 );
 
-// --------------------------------------------------
-// EVENT LOGGING
-// --------------------------------------------------
+/* =========================================================
+   GET TODAY'S PUBLISHED LESSON
+=========================================================
+
+   Teacher publishes:
+       lesson_plans.status = "published"
+
+   ASCORA retrieves:
+       latest published lesson
+
+   This is currently classroom-wide.
+   Later we can add classroom_id / section_id.
+========================================================= */
+
+ascoraRouter.get(
+  "/lesson/today",
+  requireAuth,
+  async (req, res) => {
+    try {
+      if (!supabaseAdmin) {
+        return res.status(500).json({
+          error:
+            "Supabase admin client is not configured",
+        });
+      }
+
+      const { data, error } =
+        await supabaseAdmin
+          .from("lesson_plans")
+          .select(`
+            id,
+            student_id,
+            topic,
+            strategy_id,
+            content,
+            created_at,
+            teacher_id,
+            status,
+            published_at,
+            updated_at
+          `)
+          .eq("status", "published")
+          .order(
+            "published_at",
+            {
+              ascending: false,
+            }
+          )
+          .limit(1)
+          .maybeSingle();
+
+      if (error) {
+        console.error(
+          "ASCORA lesson fetch error:",
+          error
+        );
+
+        return res.status(500).json({
+          error:
+            "Failed to fetch today's lesson",
+        });
+      }
+
+      if (!data) {
+        return res.json({
+          lesson: null,
+
+          message:
+            "No lesson has been published yet.",
+        });
+      }
+
+      return res.json({
+        lesson: data,
+      });
+    } catch (error) {
+      console.error(
+        "ASCORA today's lesson error:",
+        error?.message || error
+      );
+
+      return res.status(500).json({
+        error:
+          "Failed to fetch today's lesson",
+      });
+    }
+  }
+);
+
+/* =========================================================
+   EVENT LOGGING
+========================================================= */
 
 ascoraRouter.post(
   "/event",
@@ -328,29 +402,27 @@ ascoraRouter.post(
         });
       }
 
-      const {
-        error,
-      } = await supabaseAdmin
-        .from("learning_events")
-        .insert({
-          student_id:
-            studentId,
+      const { error } =
+        await supabaseAdmin
+          .from("learning_events")
+          .insert({
+            student_id:
+              studentId,
 
-          event_type:
-            String(
-              event ||
-                "ASCORA_EVENT"
-            ).toUpperCase(),
+            event_type:
+              String(
+                event ||
+                  "ASCORA_EVENT"
+              ).toUpperCase(),
 
-          topic:
-            topic || null,
+            topic:
+              topic || null,
 
-          metadata: {
-            source:
-              "ascora",
-            ...metadata,
-          },
-        });
+            metadata: {
+              source: "ascora",
+              ...metadata,
+            },
+          });
 
       if (error) {
         console.error(
@@ -366,8 +438,11 @@ ascoraRouter.post(
 
       return res.json({
         ok: true,
+
         stored: true,
+
         event,
+
         event_time:
           new Date().toISOString(),
       });
@@ -385,9 +460,9 @@ ascoraRouter.post(
   }
 );
 
-// --------------------------------------------------
-// GENERATE ADAPTIVE LECTURE
-// --------------------------------------------------
+/* =========================================================
+   GENERATE ADAPTIVE LECTURE
+========================================================= */
 
 ascoraRouter.post(
   "/lecture/generate",
@@ -400,6 +475,10 @@ ascoraRouter.post(
         doubt,
         objective,
       } = req.body || {};
+
+      /* -----------------------------------------------
+         Validate student
+      ------------------------------------------------ */
 
       if (
         !studentId ||
@@ -421,6 +500,10 @@ ascoraRouter.post(
         return;
       }
 
+      /* -----------------------------------------------
+         Validate doubt
+      ------------------------------------------------ */
+
       if (
         !doubt ||
         typeof doubt !== "string" ||
@@ -432,11 +515,19 @@ ascoraRouter.post(
         });
       }
 
+      /* -----------------------------------------------
+         Student profile
+      ------------------------------------------------ */
+
       const profile =
         await buildStudentProfile(
           studentId,
           { topic }
         );
+
+      /* -----------------------------------------------
+         Adaptive strategy
+      ------------------------------------------------ */
 
       const strategy =
         buildTeachingStrategy(
@@ -452,6 +543,10 @@ ascoraRouter.post(
             objective,
           }
         );
+
+      /* -----------------------------------------------
+         Generate lecture
+      ------------------------------------------------ */
 
       const lecture =
         await generateLecture({
@@ -470,6 +565,10 @@ ascoraRouter.post(
 
           strategy,
         });
+
+      /* -----------------------------------------------
+         Store generated lecture
+      ------------------------------------------------ */
 
       if (supabaseAdmin) {
         await supabaseAdmin
@@ -490,7 +589,14 @@ ascoraRouter.post(
             },
           });
 
-        await supabaseAdmin
+        /* ---------------------------------------------
+           Save strategy and capture its ID
+        ---------------------------------------------- */
+
+        const {
+          data: savedStrategy,
+          error: strategyError,
+        } = await supabaseAdmin
           .from("teaching_strategies")
           .insert({
             student_id:
@@ -506,25 +612,55 @@ ascoraRouter.post(
 
             reason:
               strategy.reason,
-          });
+          })
+          .select("id")
+          .single();
 
-        await supabaseAdmin
-          .from("lesson_plans")
-          .insert({
-            student_id:
-              studentId,
+        if (strategyError) {
+          console.error(
+            "ASCORA strategy save error:",
+            strategyError
+          );
+        }
 
-            topic:
-              strategy.topic,
+        /* ---------------------------------------------
+           Save lesson plan
+        ---------------------------------------------- */
 
-            content:
-              lecture,
-          });
+        const { error: lessonError } =
+          await supabaseAdmin
+            .from("lesson_plans")
+            .insert({
+              student_id:
+                studentId,
+
+              topic:
+                strategy.topic,
+
+              strategy_id:
+                savedStrategy?.id ||
+                null,
+
+              content:
+                lecture,
+
+              status:
+                "draft",
+            });
+
+        if (lessonError) {
+          console.error(
+            "ASCORA lesson save error:",
+            lessonError
+          );
+        }
       }
 
       return res.json({
         lecture,
+
         strategy,
+
         studentProfile:
           profile,
       });
@@ -542,9 +678,9 @@ ascoraRouter.post(
   }
 );
 
-// --------------------------------------------------
-// LECTURE CHECKPOINT EVALUATION
-// --------------------------------------------------
+/* =========================================================
+   LECTURE CHECKPOINT EVALUATION
+========================================================= */
 
 ascoraRouter.post(
   "/lecture/evaluate",
@@ -560,6 +696,10 @@ ascoraRouter.post(
         expectedConcept,
         priorMisconceptionType,
       } = req.body || {};
+
+      /* -----------------------------------------------
+         Validate student
+      ------------------------------------------------ */
 
       if (
         !studentId ||
@@ -581,6 +721,10 @@ ascoraRouter.post(
         return;
       }
 
+      /* -----------------------------------------------
+         Validate question
+      ------------------------------------------------ */
+
       if (
         !question ||
         typeof question !== "string"
@@ -590,6 +734,10 @@ ascoraRouter.post(
             "question is required",
         });
       }
+
+      /* -----------------------------------------------
+         Validate response
+      ------------------------------------------------ */
 
       if (
         !studentResponse ||
@@ -601,11 +749,19 @@ ascoraRouter.post(
         });
       }
 
+      /* -----------------------------------------------
+         Get current profile
+      ------------------------------------------------ */
+
       const profile =
         await buildStudentProfile(
           studentId,
           { topic }
         );
+
+      /* -----------------------------------------------
+         Evaluate response
+      ------------------------------------------------ */
 
       const evaluation =
         evaluateResponse({
@@ -626,6 +782,10 @@ ascoraRouter.post(
                 }
               : null,
         });
+
+      /* -----------------------------------------------
+         Store evaluation
+      ------------------------------------------------ */
 
       if (supabaseAdmin) {
         await supabaseAdmin
@@ -658,10 +818,16 @@ ascoraRouter.post(
             },
           });
 
+        /* ---------------------------------------------
+           Store misconception
+        ---------------------------------------------- */
+
         if (
           evaluation.detectedMisconception
         ) {
-          await supabaseAdmin
+          const {
+            error: misconceptionError,
+          } = await supabaseAdmin
             .from(
               "student_misconceptions"
             )
@@ -694,8 +860,19 @@ ascoraRouter.post(
                   studentResponse,
               },
             });
+
+          if (misconceptionError) {
+            console.error(
+              "ASCORA misconception save error:",
+              misconceptionError
+            );
+          }
         }
       }
+
+      /* -----------------------------------------------
+         Rebuild profile after evaluation
+      ------------------------------------------------ */
 
       const updatedProfile =
         await buildStudentProfile(

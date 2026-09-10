@@ -72,9 +72,7 @@ function inferVisualType(topic = "") {
 // Difficulty normalization
 // ============================================================
 
-function normalizeDifficulty(
-  difficulty
-) {
+function normalizeDifficulty(difficulty) {
   if (
     difficulty === "advanced" ||
     difficulty === "hard"
@@ -854,6 +852,7 @@ function buildFallbackLecture({
 
     strategy: {
       difficulty,
+
       pace:
         strategy?.pace || "slow",
 
@@ -878,7 +877,6 @@ function buildFallbackLecture({
     steps,
   };
 }
-
 // ============================================================
 // MAIN GENERATOR
 // ============================================================
@@ -890,6 +888,7 @@ export async function generateLecture({
   objective,
   profile = {},
   strategy = {},
+  assessmentSignals = {},
 }) {
   try {
     // --------------------------------------------------------
@@ -908,6 +907,53 @@ export async function generateLecture({
     const visualSupport =
       strategy?.visualSupport ??
       true;
+
+    // Assessment data is evidence, not a replacement
+    // for the student profile.
+    //
+    // It lets ASCORA target the misconception
+    // actually observed in assessment.
+
+    const assessment = {
+      mastery:
+        assessmentSignals?.mastery ??
+        profile?.mastery ??
+        null,
+
+      misconception:
+        assessmentSignals?.misconception ??
+        misconception ??
+        null,
+
+      recentPerformance:
+        assessmentSignals?.recentPerformance ??
+        null,
+
+      evidence:
+        Array.isArray(
+          assessmentSignals?.evidence
+        )
+          ? assessmentSignals.evidence
+          : Array.isArray(
+              assessmentSignals?.misconception
+                ?.evidence
+            )
+          ? assessmentSignals.misconception
+              .evidence
+          : [],
+
+      recentAttempts:
+        Array.isArray(
+          assessmentSignals?.recentAttempts
+        )
+          ? assessmentSignals.recentAttempts
+          : [],
+    };
+
+    const effectiveMisconception =
+      assessment?.misconception ||
+      misconception ||
+      null;
 
     const learningContext = {
       topic,
@@ -931,8 +977,11 @@ export async function generateLecture({
       visualSupport,
 
       misconception:
-        misconception?.type ||
+        effectiveMisconception?.type ||
         null,
+
+      assessmentSignals:
+        assessment,
     };
 
     // --------------------------------------------------------
@@ -943,14 +992,15 @@ export async function generateLecture({
       buildAnimatedLesson({
         topic,
         doubt,
-        misconception,
+        misconception:
+          effectiveMisconception,
         difficulty,
       });
 
     const standardVisual =
       buildVisual(
         topic,
-        misconception
+        effectiveMisconception
       );
 
     // --------------------------------------------------------
@@ -965,8 +1015,18 @@ Explain ${topic || "this topic"} specifically to address the student's misconcep
 Student's doubt:
 ${doubt || "No doubt provided"}
 
+Assessment evidence:
+${JSON.stringify(
+  assessment.evidence.slice(0, 6)
+)}
+
+Recent performance:
+${JSON.stringify(
+  assessment.recentPerformance
+)}
+
 Misconception:
-${misconception.type?.replaceAll(
+${effectiveMisconception.type?.replaceAll(
   "_",
   " "
 )}
@@ -1032,10 +1092,15 @@ Give one ${difficulty}-level worked example for ${
 Student doubt:
 ${doubt || "No doubt provided"}
 
+Assessment evidence:
+${JSON.stringify(
+  assessment.evidence.slice(0, 6)
+)}
+
 ${
-  misconception
+  effectiveMisconception
     ? `The student previously struggled with:
-${misconception.type?.replaceAll(
+${effectiveMisconception.type?.replaceAll(
   "_",
   " "
 )}`
@@ -1084,7 +1149,7 @@ Important:
     const expectedConcept =
       expectedConceptFor(
         topic,
-        misconception
+        effectiveMisconception
       );
 
     // --------------------------------------------------------
@@ -1256,12 +1321,18 @@ Important:
         adaptive: true,
 
         misconception:
-          misconception?.type ||
+          effectiveMisconception?.type ||
           null,
 
         mastery:
-          profile?.mastery ??
+          assessment?.mastery ??
           null,
+
+        assessmentDriven:
+          assessment.evidence.length > 0,
+
+        evidenceCount:
+          assessment.evidence.length,
 
         difficulty,
       },
@@ -1290,6 +1361,7 @@ Important:
     }
 
     return lecture;
+
   } catch (error) {
     console.error(
       "Lecture generation error:",
