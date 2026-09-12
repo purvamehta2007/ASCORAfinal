@@ -3055,11 +3055,14 @@ export default function Ascora({ student = null }) {
                 } gesture-${demoMode ? demoStep % 4 : 0}`}
               >
                 <div className="ai-avatar-glow" aria-hidden="true" />
-                <img
-                  src={teacherAvatar}
-                  alt="ASCORA AI Teacher"
-                  className="teacher-avatar-main"
-                />
+                <video
+  src="/ascora-animation.mp4"
+  className="teacher-avatar-main"
+  autoPlay
+  loop
+  muted
+  playsInline
+/>
                 <div className="ai-speaking-indicator" aria-hidden="true">
                   <span /><span /><span /><span /><span />
                 </div>

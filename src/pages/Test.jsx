@@ -1,116 +1,157 @@
-import React, {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  useNavigate,
-} from "react-router-dom";
+  CheckCircle2,
+  XCircle,
+  Clock,
+  TrendingUp,
+  AlertTriangle,
+  GraduationCap,
+  RotateCcw,
+} from "lucide-react";
 
 import { supabase } from "../lib/supabase";
-import { apiFetch } from "../lib/api";
+import { C } from "../lib/theme";
 
 const DEMO_QUESTIONS = [
   {
     id: "q1",
-    question:
-      "What is photosynthesis?",
+    question: "What is photosynthesis?",
     options: [
       "The process by which plants make food using light",
       "The process by which plants absorb oxygen",
       "The process by which plants produce soil",
       "The process by which plants lose water",
     ],
-    correctAnswer:
-      "The process by which plants make food using light",
+    correctAnswer: "The process by which plants make food using light",
     topic: "Biology",
     concept: "Photosynthesis",
     difficulty: 1,
   },
-
   {
     id: "q2",
-    question:
-      "Which gas is mainly used by plants during photosynthesis?",
-    options: [
-      "Oxygen",
-      "Carbon dioxide",
-      "Nitrogen",
-      "Hydrogen",
-    ],
-    correctAnswer:
-      "Carbon dioxide",
+    question: "Which gas is mainly used by plants during photosynthesis?",
+    options: ["Oxygen", "Carbon dioxide", "Nitrogen", "Hydrogen"],
+    correctAnswer: "Carbon dioxide",
     topic: "Biology",
     concept: "Photosynthesis",
     difficulty: 1,
   },
-
   {
     id: "q3",
-    question:
-      "What is the main function of chlorophyll?",
+    question: "What is the main function of chlorophyll?",
     options: [
       "Absorb light energy",
       "Absorb water",
       "Produce oxygen directly",
       "Store soil nutrients",
     ],
-    correctAnswer:
-      "Absorb light energy",
+    correctAnswer: "Absorb light energy",
     topic: "Biology",
     concept: "Chlorophyll",
     difficulty: 2,
   },
 ];
 
-export default function Test({
-  user: userProp,
-}) {
+const testCss = `
+  .test-option {
+    width: 100%;
+    text-align: left;
+    border-radius: 16px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border: 1px solid rgba(148,163,184,.14);
+    background: rgba(255,255,255,.02);
+    color: #f4f7fb;
+    transition:
+      border-color .15s ease,
+      background .15s ease,
+      transform .1s ease;
+  }
+
+  .test-option:hover {
+    background: rgba(56,189,248,.05);
+    border-color: rgba(56,189,248,.2);
+  }
+
+  .test-option.selected {
+    border-color: #38bdf8;
+    background: rgba(56,189,248,.08);
+  }
+
+  .test-option:active {
+    transform: scale(.995);
+  }
+
+  .test-letter {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    background: rgba(148,163,184,.08);
+    font-weight: 700;
+    font-size: 13px;
+    color: #94a3b8;
+  }
+
+  .test-option.selected .test-letter {
+    background: #38bdf8;
+    color: #04101d;
+  }
+
+  .test-progress-track {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(148,163,184,.12);
+    overflow: hidden;
+  }
+
+  .test-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg,#38bdf8,#8b5cf6);
+    transition: width .4s ease;
+  }
+
+  .topic-bar-track {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(148,163,184,.10);
+    overflow: hidden;
+  }
+
+  .topic-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width .6s ease;
+  }
+`;
+
+export default function Test({ user: userProp }) {
   const navigate = useNavigate();
 
-  const [user, setUser] =
-    useState(userProp || null);
-
-  const [questions] =
-    useState(DEMO_QUESTIONS);
-
-  const [currentIndex, setCurrentIndex] =
-    useState(0);
-
-  const [selectedAnswer, setSelectedAnswer] =
-    useState("");
-
-  const [answers, setAnswers] =
-    useState([]);
-
-  const [questionStartTime] =
-    useState(Date.now());
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const [error, setError] =
-    useState("");
-
-  const [finished, setFinished] =
-    useState(false);
-
-  // ==========================================
-  // GET AUTH USER
-  // ==========================================
+  const [user, setUser] = useState(userProp || null);
+  const [questions] = useState(DEMO_QUESTIONS);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState("");
+  const [answers, setAnswers] = useState([]);
+  const [questionStartTime, setQuestionStartTime] = useState(Date.now());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [finished, setFinished] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
       const {
-        data: {
-          user: currentUser,
-        },
-      } =
-        await supabase.auth.getUser();
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
 
       if (!currentUser) {
-        navigate("/login");
+        navigate("/auth");
         return;
       }
 
@@ -122,275 +163,731 @@ export default function Test({
     }
   }, [userProp, navigate]);
 
-  const currentQuestion =
-    questions[currentIndex];
+  const currentQuestion = questions[currentIndex];
 
-  // ==========================================
-  // PROGRESS
-  // ==========================================
+  const progress = useMemo(
+    () => ((currentIndex + 1) / questions.length) * 100,
+    [currentIndex, questions.length]
+  );
 
-  const progress = useMemo(() => {
-    return (
-      ((currentIndex + 1) /
-        questions.length) *
-      100
+  const submitCurrentAnswer = async () => {
+    if (!selectedAnswer) {
+      setError("Please select an answer.");
+      return;
+    }
+
+    if (!user) {
+      setError("You are not logged in.");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+
+    const timeTaken = Math.max(
+      1,
+      Math.round((Date.now() - questionStartTime) / 1000)
     );
-  }, [
-    currentIndex,
-    questions.length,
-  ]);
 
-  // ==========================================
-  // SAVE ANSWER
-  // ==========================================
+    const correct =
+      selectedAnswer === currentQuestion.correctAnswer;
 
-  const submitCurrentAnswer =
-    async () => {
-      if (!selectedAnswer) {
-        setError(
-          "Please select an answer."
-        );
-
-        return;
-      }
-
-      if (!user) {
-        setError(
-          "You are not logged in."
-        );
-
-        return;
-      }
-
-      setError("");
-      setLoading(true);
-
-      const timeTaken = Math.max(
-        1,
-        Math.round(
-          (Date.now() -
-            questionStartTime) /
-            1000
-        )
-      );
-
-      const correct =
-        selectedAnswer ===
-        currentQuestion.correctAnswer;
-
-      const attempt = {
-        question_id:
-          currentQuestion.id,
-
-        topic:
-          currentQuestion.topic,
-
-        concept:
-          currentQuestion.concept,
-
-        difficulty:
-          currentQuestion.difficulty,
-
-        answer:
-          selectedAnswer,
-
-        correct,
-
-        time_taken:
-          timeTaken,
-
-        attempts: 1,
-
-        hints_used: 0,
-
-        answer_changed: false,
-
-        question:
-          currentQuestion.question,
-      };
-
-      try {
-        // ======================================
-        // SEND TO BACKEND
-        // ======================================
-
-        const result =
-          await apiFetch(
-            "/api/assessment/attempt",
-            {
-              method: "POST",
-
-              body: JSON.stringify(
-                attempt
-              ),
-            }
-          );
-
-        console.log(
-          "ASSESSMENT SAVED:",
-          result
-        );
-
-        // ======================================
-        // LOCAL RESULT
-        // ======================================
-
-        setAnswers((previous) => [
-          ...previous,
-          {
-            ...attempt,
-            misconception:
-              result?.misconception ||
-              null,
-          },
-        ]);
-
-        // ======================================
-        // NEXT QUESTION
-        // ======================================
-
-        if (
-          currentIndex <
-          questions.length - 1
-        ) {
-          setCurrentIndex(
-            (previous) =>
-              previous + 1
-          );
-
-          setSelectedAnswer("");
-        } else {
-          setFinished(true);
-        }
-      } catch (err) {
-        console.error(
-          "ASSESSMENT SAVE ERROR:",
-          err
-        );
-
-        setError(
-          err?.message ||
-            "Could not save your answer."
-        );
-      } finally {
-        setLoading(false);
-      }
+    const attempt = {
+      question_id: currentQuestion.id,
+      topic: currentQuestion.topic,
+      concept: currentQuestion.concept,
+      difficulty: currentQuestion.difficulty,
+      answer: selectedAnswer,
+      correct,
+      time_taken: timeTaken,
+      attempts: 1,
+      hints_used: 0,
+      answer_changed: false,
+      question: currentQuestion.question,
     };
 
-  // ==========================================
-  // RESULTS
-  // ==========================================
+    try {
+      // Demo mode:
+      // Save answer locally for this test session.
+      setAnswers((previous) => [
+        ...previous,
+        {
+          ...attempt,
+          misconception: null,
+        },
+      ]);
 
-  if (finished) {
-    const score =
-      answers.filter(
-        (answer) =>
-          answer.correct
-      ).length;
+      if (currentIndex < questions.length - 1) {
+        setCurrentIndex((previous) => previous + 1);
+        setSelectedAnswer("");
+        setQuestionStartTime(Date.now());
+      } else {
+        setFinished(true);
+      }
+    } catch (err) {
+      console.error("ASSESSMENT ERROR:", err);
+      setError(
+        err?.message || "Could not process your answer."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /*
+   * =========================================================
+   * PERFORMANCE BREAKDOWN
+   * =========================================================
+   */
+
+  const performance = useMemo(() => {
+    if (!answers.length) {
+      return null;
+    }
+
+    const totalCorrect = answers.filter(
+      (a) => a.correct
+    ).length;
+
+    const totalTime = answers.reduce(
+      (sum, a) => sum + (a.time_taken || 0),
+      0
+    );
+
+    const accuracy = Math.round(
+      (totalCorrect / answers.length) * 100
+    );
+
+    const byTopic = {};
+
+    answers.forEach((a) => {
+      const key = a.topic || "General";
+
+      if (!byTopic[key]) {
+        byTopic[key] = {
+          total: 0,
+          correct: 0,
+          time: 0,
+        };
+      }
+
+      byTopic[key].total += 1;
+      byTopic[key].time += a.time_taken || 0;
+
+      if (a.correct) {
+        byTopic[key].correct += 1;
+      }
+    });
+
+    const topics = Object.entries(byTopic)
+      .map(([topic, stats]) => ({
+        topic,
+        accuracy: Math.round(
+          (stats.correct / stats.total) * 100
+        ),
+        total: stats.total,
+        correct: stats.correct,
+        avgTime: Math.round(
+          stats.time / stats.total
+        ),
+      }))
+      .sort(
+        (a, b) => b.accuracy - a.accuracy
+      );
+
+    const misconceptions = answers
+      .filter((a) => a.misconception)
+      .map((a) => ({
+        concept: a.concept,
+        ...a.misconception,
+      }));
+
+    const weakest = topics.filter(
+      (t) => t.accuracy < 70
+    );
+
+    let verdict = "Strong performance";
+
+    if (accuracy < 40) {
+      verdict = "Needs focused practice";
+    } else if (accuracy < 70) {
+      verdict = "Good progress, some gaps";
+    }
+
+    return {
+      totalCorrect,
+      totalTime,
+      accuracy,
+      avgTimePerQuestion: Math.round(
+        totalTime / answers.length
+      ),
+      topics,
+      misconceptions,
+      weakest,
+      verdict,
+    };
+  }, [answers]);
+
+  /*
+   * =========================================================
+   * RESULTS SCREEN
+   * =========================================================
+   */
+
+  if (finished && performance) {
+    const ringColor =
+      performance.accuracy >= 70
+        ? C.green
+        : performance.accuracy >= 40
+        ? C.amber
+        : C.red;
 
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center px-6">
-        <div className="w-full max-w-xl text-center">
+      <div
+        style={{
+          minHeight: "100vh",
+          padding: "48px 20px",
+        }}
+      >
+        <style>{testCss}</style>
 
-          <div className="text-6xl mb-6">
-            🎓
-          </div>
+        <div
+          style={{
+            maxWidth: 760,
+            margin: "0 auto",
+          }}
+        >
+          {/* HEADER */}
 
-          <h1 className="text-4xl font-bold">
-            Assessment Complete
-          </h1>
-
-          <p className="text-white/50 mt-3">
-            Your learning data has been
-            recorded.
-          </p>
-
-          <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-8">
-
-            <div className="text-5xl font-bold">
-              {score}/{questions.length}
+          <div
+            style={{
+              textAlign: "center",
+              marginBottom: 32,
+            }}
+          >
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                margin: "0 auto 18px",
+                borderRadius: 20,
+                display: "grid",
+                placeItems: "center",
+                background: C.cyanSoft,
+                border: `1px solid ${C.border}`,
+              }}
+            >
+              <GraduationCap
+                size={28}
+                color="#7dd3fc"
+              />
             </div>
 
-            <p className="text-white/50 mt-2">
-              Your score
-            </p>
+            <h1
+              style={{
+                fontSize: 30,
+                marginBottom: 8,
+              }}
+            >
+              Assessment Complete
+            </h1>
 
-            <div className="mt-6 space-y-3 text-left">
+            <p
+              style={{
+                color: C.muted,
+                fontSize: 14.5,
+              }}
+            >
+              {performance.verdict}
+            </p>
+          </div>
+
+          {/* SCORE + TIME SUMMARY */}
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "auto 1fr",
+              gap: 28,
+              alignItems: "center",
+              borderRadius: 24,
+              border: `1px solid ${C.border}`,
+              background: C.panel,
+              backdropFilter: "blur(18px)",
+              padding: "28px 30px",
+              marginBottom: 20,
+            }}
+          >
+            <div
+              style={{
+                width: 112,
+                height: 112,
+                borderRadius: "50%",
+                display: "grid",
+                placeItems: "center",
+                background: `conic-gradient(
+                  ${ringColor}
+                  ${performance.accuracy * 3.6}deg,
+                  rgba(148,163,184,.12) 0deg
+                )`,
+                flexShrink: 0,
+              }}
+            >
+              <div
+                style={{
+                  width: 90,
+                  height: 90,
+                  borderRadius: "50%",
+                  background: "#0b1220",
+                  display: "grid",
+                  placeItems: "center",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 800,
+                    fontFamily:
+                      "var(--font-display)",
+                  }}
+                >
+                  {performance.accuracy}%
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(3, minmax(90px, 1fr))",
+                gap: 16,
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    color: C.muted,
+                    fontSize: 12,
+                    marginBottom: 4,
+                  }}
+                >
+                  Score
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 750,
+                  }}
+                >
+                  {performance.totalCorrect}/
+                  {questions.length}
+                </div>
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    color: C.muted,
+                    fontSize: 12,
+                    marginBottom: 4,
+                  }}
+                >
+                  Total time
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 750,
+                  }}
+                >
+                  {performance.totalTime}s
+                </div>
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    color: C.muted,
+                    fontSize: 12,
+                    marginBottom: 4,
+                  }}
+                >
+                  Avg / question
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 750,
+                  }}
+                >
+                  {performance.avgTimePerQuestion}s
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* TOPIC BREAKDOWN */}
+
+          <div
+            style={{
+              borderRadius: 24,
+              border: `1px solid ${C.border}`,
+              background: C.panel,
+              backdropFilter: "blur(18px)",
+              padding: "26px 28px",
+              marginBottom: 20,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 18,
+              }}
+            >
+              <TrendingUp
+                size={16}
+                color="#7dd3fc"
+              />
+
+              <h2
+                style={{
+                  fontSize: 16,
+                  fontWeight: 700,
+                }}
+              >
+                Performance by topic
+              </h2>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: 16,
+              }}
+            >
+              {performance.topics.map((t) => (
+                <div key={t.topic}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent:
+                        "space-between",
+                      marginBottom: 7,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 13.5,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {t.topic}
+                    </span>
+
+                    <span
+                      style={{
+                        fontSize: 12.5,
+                        color: C.muted,
+                      }}
+                    >
+                      {t.correct}/{t.total} correct ·
+                      avg {t.avgTime}s
+                    </span>
+                  </div>
+
+                  <div className="topic-bar-track">
+                    <div
+                      className="topic-bar-fill"
+                      style={{
+                        width: `${t.accuracy}%`,
+                        background:
+                          t.accuracy >= 70
+                            ? "linear-gradient(90deg,#34d399,#10b981)"
+                            : t.accuracy >= 40
+                            ? "linear-gradient(90deg,#f5a524,#f59e0b)"
+                            : "linear-gradient(90deg,#f87171,#ef4444)",
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* MISCONCEPTIONS */}
+
+          {performance.misconceptions.length >
+            0 && (
+            <div
+              style={{
+                borderRadius: 24,
+                border: `1px solid ${C.amber}33`,
+                background: C.amberSoft,
+                padding: "22px 26px",
+                marginBottom: 20,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 12,
+                }}
+              >
+                <AlertTriangle
+                  size={16}
+                  color="#f5a524"
+                />
+
+                <h2
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 700,
+                  }}
+                >
+                  Learning signals detected
+                </h2>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gap: 8,
+                }}
+              >
+                {performance.misconceptions.map(
+                  (m, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        fontSize: 13,
+                        color: "#fde68a",
+                      }}
+                    >
+                      <strong>
+                        {m.concept}:
+                      </strong>{" "}
+                      {m.type}
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* QUESTION-BY-QUESTION */}
+
+          <div
+            style={{
+              borderRadius: 24,
+              border: `1px solid ${C.border}`,
+              background: C.panel,
+              backdropFilter: "blur(18px)",
+              padding: "22px 26px",
+              marginBottom: 28,
+            }}
+          >
+            <h2
+              style={{
+                fontSize: 15,
+                fontWeight: 700,
+                marginBottom: 14,
+              }}
+            >
+              Question by question
+            </h2>
+
+            <div
+              style={{
+                display: "grid",
+                gap: 10,
+              }}
+            >
               {answers.map(
                 (answer, index) => (
                   <div
                     key={index}
-                    className="rounded-xl bg-white/5 p-4"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent:
+                        "space-between",
+                      padding: "11px 14px",
+                      borderRadius: 12,
+                      background:
+                        "rgba(255,255,255,.02)",
+                      border: `1px solid ${C.border}`,
+                    }}
                   >
-                    <div className="flex justify-between">
-                      <span>
-                        Question{" "}
-                        {index + 1}
-                      </span>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                      }}
+                    >
+                      {answer.correct ? (
+                        <CheckCircle2
+                          size={16}
+                          color="#34d399"
+                        />
+                      ) : (
+                        <XCircle
+                          size={16}
+                          color="#f87171"
+                        />
+                      )}
 
-                      <span>
-                        {answer.correct
-                          ? "✓ Correct"
-                          : "✗ Incorrect"}
+                      <span
+                        style={{
+                          fontSize: 13,
+                        }}
+                      >
+                        Question {index + 1} ·{" "}
+                        {answer.concept}
                       </span>
                     </div>
 
-                    {answer.misconception && (
-                      <p className="text-sm text-yellow-400 mt-2">
-                        Learning signal detected:
-                        {" "}
-                        {
-                          answer
-                            .misconception
-                            .type
-                        }
-                      </p>
-                    )}
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                        fontSize: 12,
+                        color: C.muted,
+                      }}
+                    >
+                      <Clock size={12} />
+                      {answer.time_taken}s
+                    </span>
                   </div>
                 )
               )}
             </div>
           </div>
 
-          <button
-            onClick={() =>
-              navigate(
-                "/classroom"
-              )
-            }
-            className="mt-8 px-8 py-3 rounded-xl bg-white text-black font-semibold"
+          {/* ACTIONS */}
+
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              justifyContent: "center",
+              flexWrap: "wrap",
+            }}
           >
-            Learn with ASCORA
-          </button>
+            <button
+              onClick={() =>
+                window.location.reload()
+              }
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "12px 20px",
+                borderRadius: 12,
+                border: `1px solid ${C.borderStrong}`,
+                background:
+                  "rgba(148,163,184,.06)",
+                color: C.text,
+                fontWeight: 650,
+                fontSize: 14,
+              }}
+            >
+              <RotateCcw size={16} />
+              Retake test
+            </button>
+
+            <button
+              onClick={() =>
+                navigate("/classroom")
+              }
+              style={{
+                padding: "12px 24px",
+                borderRadius: 12,
+                background:
+                  "linear-gradient(135deg, #38bdf8, #6366f1)",
+                color: "#04101d",
+                fontWeight: 750,
+                fontSize: 14,
+                boxShadow:
+                  "0 10px 30px rgba(56,189,248,.2)",
+              }}
+            >
+              Learn with ASCORA
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // ==========================================
-  // TEST UI
-  // ==========================================
+  /*
+   * =========================================================
+   * TEST UI
+   * =========================================================
+   */
 
   return (
-    <div className="min-h-screen bg-black text-white px-6 py-10">
+    <div
+      style={{
+        minHeight: "100vh",
+        padding: "40px 20px",
+      }}
+    >
+      <style>{testCss}</style>
 
-      <div className="max-w-3xl mx-auto">
-
+      <div
+        style={{
+          maxWidth: 680,
+          margin: "0 auto",
+        }}
+      >
         {/* HEADER */}
 
-        <div className="flex justify-between items-center mb-8">
-
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 28,
+          }}
+        >
           <div>
-            <p className="text-sm text-white/40">
+            <p
+              style={{
+                fontSize: 12.5,
+                color: C.muted,
+                marginBottom: 4,
+              }}
+            >
               ASCORA Assessment
             </p>
 
-            <h1 className="text-2xl font-bold">
+            <h1
+              style={{
+                fontSize: 22,
+                fontWeight: 750,
+              }}
+            >
               {currentQuestion.topic}
             </h1>
           </div>
 
-          <span className="text-white/40">
+          <span
+            style={{
+              color: C.muted,
+              fontSize: 13.5,
+              fontWeight: 600,
+            }}
+          >
             {currentIndex + 1}/
             {questions.length}
           </span>
@@ -398,54 +895,79 @@ export default function Test({
 
         {/* PROGRESS */}
 
-        <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-10">
+        <div
+          className="test-progress-track"
+          style={{
+            marginBottom: 32,
+          }}
+        >
           <div
-            className="h-full bg-white transition-all"
+            className="test-progress-fill"
             style={{
-              width:
-                `${progress}%`,
+              width: `${progress}%`,
             }}
           />
         </div>
 
-        {/* QUESTION */}
+        {/* QUESTION CARD */}
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-7 md:p-10">
-
-          <p className="text-sm text-white/40 mb-4">
+        <div
+          style={{
+            borderRadius: 24,
+            border: `1px solid ${C.border}`,
+            background: C.panel,
+            backdropFilter: "blur(18px)",
+            padding: "30px 28px",
+          }}
+        >
+          <p
+            style={{
+              fontSize: 12.5,
+              color: C.muted,
+              marginBottom: 12,
+              textTransform: "uppercase",
+              letterSpacing: ".04em",
+            }}
+          >
             {currentQuestion.concept}
           </p>
 
-          <h2 className="text-2xl md:text-3xl font-semibold leading-relaxed">
+          <h2
+            style={{
+              fontSize: 21,
+              fontWeight: 650,
+              lineHeight: 1.45,
+              marginBottom: 26,
+            }}
+          >
             {currentQuestion.question}
           </h2>
 
-          {/* OPTIONS */}
-
-          <div className="mt-8 space-y-3">
-
+          <div
+            style={{
+              display: "grid",
+              gap: 10,
+            }}
+          >
             {currentQuestion.options.map(
               (option, index) => {
                 const selected =
-                  selectedAnswer ===
-                  option;
+                  selectedAnswer === option;
 
                 return (
                   <button
                     key={option}
                     type="button"
                     onClick={() =>
-                      setSelectedAnswer(
-                        option
-                      )
+                      setSelectedAnswer(option)
                     }
-                    className={`w-full text-left rounded-2xl border p-4 transition ${
+                    className={`test-option ${
                       selected
-                        ? "border-white bg-white/10"
-                        : "border-white/10 bg-white/5 hover:bg-white/[0.08]"
+                        ? "selected"
+                        : ""
                     }`}
                   >
-                    <span className="inline-flex w-8 h-8 rounded-full bg-white/10 items-center justify-center mr-3">
+                    <span className="test-letter">
                       {String.fromCharCode(
                         65 + index
                       )}
@@ -458,23 +980,36 @@ export default function Test({
             )}
           </div>
 
-          {/* ERROR */}
-
           {error && (
-            <div className="mt-5 text-red-300 text-sm">
+            <div
+              style={{
+                marginTop: 18,
+                color: "#fca5a5",
+                fontSize: 13.5,
+              }}
+            >
               {error}
             </div>
           )}
 
-          {/* BUTTON */}
-
           <button
             type="button"
-            onClick={
-              submitCurrentAnswer
-            }
+            onClick={submitCurrentAnswer}
             disabled={loading}
-            className="mt-8 w-full rounded-xl bg-white text-black py-3.5 font-semibold disabled:opacity-50"
+            style={{
+              marginTop: 26,
+              width: "100%",
+              borderRadius: 14,
+              padding: "14px 16px",
+              background:
+                "linear-gradient(135deg, #38bdf8, #6366f1)",
+              color: "#04101d",
+              fontWeight: 750,
+              fontSize: 14.5,
+              opacity: loading ? 0.6 : 1,
+              boxShadow:
+                "0 10px 30px rgba(56,189,248,.18)",
+            }}
           >
             {loading
               ? "Saving..."
@@ -483,7 +1018,6 @@ export default function Test({
               ? "Finish Assessment"
               : "Next Question"}
           </button>
-
         </div>
       </div>
     </div>

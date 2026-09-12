@@ -15,7 +15,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Classroom from "./pages/Classroom";
 import Assessment from "./pages/Assessment";
-import Test from "./pages/test";
+import Test from "./pages/Test";     
 import Notebook from "./pages/Notebook";
 import Insights from "./pages/Insights";
 import Teacher from "./pages/Teacher";
@@ -397,14 +397,15 @@ function PortalLayout({ student, children, teacher = false }) {
           </div>
 
           <nav
-            className="ascora-scroll"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 5,
-              overflowY: "auto",
-            }}
-          >
+  className="ascora-scroll"
+  style={{
+    display: "flex",
+    flexDirection: "column",
+    gap: 5,
+    overflowY: "auto",
+    flexShrink: 0,
+  }}
+>
             {navigation.map((item, index) => (
               <NavItem
                 key={`${item.path}-${item.label}-${index}`}
